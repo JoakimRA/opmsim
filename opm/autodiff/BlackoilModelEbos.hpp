@@ -292,6 +292,9 @@ namespace Opm {
             report.total_linearizations = 1;
 
             try {
+
+
+
                 report += assemble(timer, iteration, reservoir_state, well_state);
                 report.assemble_time += perfTimer.stop();
             }
@@ -584,10 +587,10 @@ namespace Opm {
                  //Dune::printmatrix(std::cout, numC, "numerical C", "row");
 
 
-                Dune::printmatrix(std::cout, A, "AD A", "row");
-                Dune::printmatrix(std::cout, numA, "numerical A", "row");
-                calculateDifference(A, numA, &diffA);
-                Dune::printmatrix(std::cout, diffA, "A  difference", "row");
+                //Dune::printmatrix(std::cout, A, "AD A", "row");
+                //Dune::printmatrix(std::cout, numA, "numerical A", "row");
+                //calculateDifference(A, numA, &diffA);
+                //Dune::printmatrix(std::cout, diffA, "A  difference", "row");
 /*
                 Dune::printmatrix(std::cout, C, "AD C", "row");
                 Dune::printmatrix(std::cout, numC, "numerical C", "row");
@@ -621,7 +624,7 @@ namespace Opm {
 
 
                 std::vector<Scalar> pert_sizes2 = {-0.000001, -0.000001, -10}; // Using a negative value is the same as applying a positive perturbation.
-
+/*
                 // Calculating the numerical B and D
                 for(std::size_t well=0; well<2; ++well){      // For each well.
                     for(int stateType = 0; stateType<2; ++stateType){           // For each phase/state_variable/component in that well
@@ -697,7 +700,7 @@ namespace Opm {
                         }
                     }
                 }
-
+*/
                 //Dune::printmatrix(std::cout, numB, "numerical B", "row");
                 //Dune::printmatrix(std::cout, numD, "numerical D", "row");
 
@@ -738,7 +741,7 @@ namespace Opm {
                 wellModel().assemble(ebosSimulator_, iteration, dt, tmpWellState); // This will affect the residuals and the jacobian in ebosSimulator_
 }
 
-/*
+
                 std::vector<Scalar> pert_sizes0 ={-0.000001, -10};
                 // Calculates the jacobian of the reservoir residuals w.r.t. the intial state.
                 for(std::size_t cell_block=0; cell_block<9; ++cell_block){      // For each grid block.
@@ -765,10 +768,6 @@ namespace Opm {
 
                             ebosSimulator_.model().invalidateIntensiveQuantitiesCache(0);
                             ebosSimulator_.model().invalidateIntensiveQuantitiesCache(1);
-
-                            auto tmp = nonlinear_solver.computeFluidInPlace(fipnum);
-                            //nonlinear_solver.FIPTotals(tmp, tmp_initial_reservoir_state);
-
 
                             // Calculate the residual and the jacobian
                             ebosSimulator_.model().linearizer().linearize();
@@ -797,8 +796,8 @@ namespace Opm {
 
                     }//end for stateType
                 } //end for cell_block
-*/
-                //Dune::printmatrix(std::cout, numA0, "numerical jacobian of reservoir residuals w.r.t. the initial state", "row");
+
+                Dune::printmatrix(std::cout, numA0, "numerical jacobian of reservoir residuals w.r.t. the initial state", "row");
 
 
                 /* ----------------- Minimum working example ----------------- */
@@ -2525,6 +2524,55 @@ namespace Opm {
             const auto& ebosJacConst = ebosSimulator_.model().linearizer().matrix();
             auto& A = ebosSimulator_.model().linearizer().matrixA();
             A = ebosJacConst;
+
+            /* convertInput( 0, reservoirState, ebosSimulator_ );
+
+
+            ReservoirState tmp_reservoir_state = reservoirState;
+            tmp_reservoir_state.pressure()[0] += 10000;
+            tmp_reservoir_state.pressure()[4] += 1000;
+            tmp_reservoir_state.pressure()[6] += 20000;
+
+            // Get the references to the ebos residual and Jacobian
+            auto& ebos_jac = ebosSimulator_.model().linearizer().matrix();
+            auto& ebos_resid = ebosSimulator_.model().linearizer().residual();
+
+            // Calculate the residual and the jacobian
+            ebosSimulator_.model().linearizer().linearize();
+
+            // Need to convert the result to "flow format".
+            convertResults(ebos_resid, ebos_jac);
+
+
+            // Get a copy of the residuals
+            auto copy_residuals_before = ebosSimulator_.model().linearizer().residual();
+            std::cout << "Residuals before we change the initial state:" << std::endl;
+            std::cout << copy_residuals_before << std::endl << std::endl;
+
+            // Update the current and the previous solution in ebos
+            convertInput( 0, tmp_reservoir_state, ebosSimulator_ );
+            convertInput( 1, reservoirState, ebosSimulator_ );
+
+            ebosSimulator_.model().invalidateIntensiveQuantitiesCache(0);
+            ebosSimulator_.model().invalidateIntensiveQuantitiesCache(1);
+
+
+            // Calculate the residual and the jacobian
+            ebosSimulator_.model().linearizer().linearize();
+
+            // Need to convert the result to "flow format".
+            convertResults(ebos_resid, ebos_jac);
+
+
+            // Get a copy of the residuals
+            auto copy_residuals_after = ebosSimulator_.model().linearizer().residual();
+            std::cout << "Residuals after we have changed the initial state:" << std::endl;
+            std::cout << copy_residuals_after << std::endl << std::endl;
+
+*/
+
+
+
         }
 
         double dpMaxRel() const { return param_.dp_max_rel_; }
