@@ -203,6 +203,16 @@ namespace Opm {
         auto& ebosJac = ebosSimulator.model().linearizer().matrix();
         auto& ebosResid = ebosSimulator.model().linearizer().residual();
 
+        unsigned timeIdx = 0;
+        std::string wrtInitial = "";
+        std::ifstream inputFile;
+        inputFile.open("/home/joakimra/yesno.txt");
+        getline(inputFile, wrtInitial);
+        inputFile.close();
+        if (wrtInitial=="true"){
+            timeIdx = 1 ;
+        }
+
         const double volume = 0.002831684659200; // 0.1 cu ft;
         for (int w = 0; w < nw; ++w) {
             bool allow_cf = allow_cross_flow(w, ebosSimulator);
@@ -210,7 +220,7 @@ namespace Opm {
             for (int perf = wells().well_connpos[w] ; perf < wells().well_connpos[w+1]; ++perf) {
 
                 const int cell_idx = wells().well_cells[perf];
-                const auto& intQuants = *(ebosSimulator.model().cachedIntensiveQuantities(cell_idx, /*timeIdx=*/0));
+                const auto& intQuants = *(ebosSimulator.model().cachedIntensiveQuantities(cell_idx, timeIdx));
                 std::vector<EvalWell> cq_s(numComp,0.0);
                 std::vector<EvalWell> mob(numComp, 0.0);
                 getMobility(ebosSimulator, w, perf, cell_idx, mob);

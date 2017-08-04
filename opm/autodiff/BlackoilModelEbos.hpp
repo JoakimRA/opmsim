@@ -416,7 +416,9 @@ namespace Opm {
 
                 typedef Dune::FieldMatrix<Scalar,2,2> M;
                 Dune::BCRSMatrix<M> A(9,9, Dune::BCRSMatrix<M>::random);
+                Dune::BCRSMatrix<M> A0(9,9, Dune::BCRSMatrix<M>::random);
                 Dune::BCRSMatrix<M> numA0(9,9, Dune::BCRSMatrix<M>::random);
+                Dune::BCRSMatrix<M> diffA0(9,9, Dune::BCRSMatrix<M>::random);
                 Dune::BCRSMatrix<M> numA(9,9, Dune::BCRSMatrix<M>::random);
                 Dune::BCRSMatrix<M> diffA(9,9, Dune::BCRSMatrix<M>::random);
                 typedef Dune::FieldMatrix<Scalar,2,3> dimBlockB;
@@ -434,9 +436,11 @@ namespace Opm {
 
 {
                 denseInitializationOfBCRSMatrix(A);
+                denseInitializationOfBCRSMatrix(A0);
                 denseInitializationOfBCRSMatrix(numA0);
                 denseInitializationOfBCRSMatrix(numA);
                 denseInitializationOfBCRSMatrix(diffA);
+                denseInitializationOfBCRSMatrix(diffA0);
                 denseInitializationOfBCRSMatrix(B);
                 denseInitializationOfBCRSMatrix(numB);
                 denseInitializationOfBCRSMatrix(diffB);
@@ -790,14 +794,86 @@ namespace Opm {
                         for (std::size_t cell_block_res=0; cell_block_res < 9; ++cell_block_res){
                             for (std::size_t res_nr=0; res_nr < 2; ++res_nr){
                                 // (f(x+dx/2) - f(x-dx/2)) / (dx)
-                                numA0[cell_block_res][cell_block][res_nr][state_type] = (residualsMB[1][cell_block_res][res_nr] - residualsMB[0][cell_block_res][res_nr])/((-pert_sizes0[state_type]));
+                                numA0[cell_block_res][cell_block][res_nr][state_type] = (residualsMB[1][cell_block_res][res_nr] - residualsMB[0][cell_block_res][res_nr])/((pert_sizes0[state_type]));
                             }
                         }
 
                     }//end for stateType
                 } //end for cell_block
 
-                Dune::printmatrix(std::cout, numA0, "numerical jacobian of reservoir residuals w.r.t. the initial state", "row");
+                //Dune::printmatrix(std::cout, numA0, "numerical jacobian of reservoir residuals w.r.t. the initial state", "row");
+
+                {
+                    ReservoirState tmp_initial_reservoir_state = copy_initial_reservoir_state;
+                    ReservoirState tmp_final_reservoir_state = final_reservoir_state ;
+                    WellState tmp_final_well_state = well_state;
+
+                    // Update the current and the previous solution in ebos with the perturbed initial solution
+                    convertInput( 0, tmp_initial_reservoir_state, ebosSimulator_ );
+
+                    // Update the current solution in ebos with the final state
+                    convertInput( 1, tmp_final_reservoir_state, ebosSimulator_ );
+
+                    // Delete the cache and recalculate.
+                    ebosSimulator_.model().invalidateIntensiveQuantitiesCache(0); //0 is timeidx
+                    ebosSimulator_.model().invalidateIntensiveQuantitiesCache(1);
+
+                    // Calculate the residual (and also the ad jacobian)
+                    ebosSimulator_.model().linearizer().linearize();
+
+                    // Need to convert the jacobian to "flow format". (Scaling by some factors)
+                    auto& ebosJac = ebosSimulator_.model().linearizer().matrix();
+                    auto& ebosResid = ebosSimulator_.model().linearizer().residual();
+                    convertResults(ebosResid, ebosJac);
+
+                    // Run the well equations too.
+                    double dt = timer.currentStepLength();
+                    wellModel().assemble(ebosSimulator_, iteration, dt, tmp_final_well_state); // This will affect the residuals and the jacobian in ebosSimulator_
+                }
+
+                ReservoirState tmp_reservoir_state = reservoir_state;
+                WellState tmp_final_well_state = well_state;
+
+                // Get the references to the ebos residual and Jacobian
+                auto& ebos_jac = ebosSimulator_.model().linearizer().matrix();
+                auto& ebos_resid = ebosSimulator_.model().linearizer().residual();
+
+                std::ofstream outputFile;
+                outputFile.open("/home/joakimra/yesno.txt");
+                outputFile << "true";
+                outputFile.close();
+
+                ebosSimulator_.model().invalidateIntensiveQuantitiesCache(0);
+                ebosSimulator_.model().invalidateIntensiveQuantitiesCache(1);
+                // Calculate the residual and the jacobian
+                ebosSimulator_.model().linearizer().linearize();
+                convertResults(ebos_resid, ebos_jac);
+                //double dt = timer.currentStepLength();
+                //wellModel().assemble(ebosSimulator_, iteration, dt, tmp_final_well_state);
+
+                outputFile.open("/home"
+                                "/joakimra/yesno.txt");
+                outputFile << "false";
+                outputFile.close();
+
+
+                // Copy the relevant elements from the AD jacobian made by the simulator.
+                for(std::size_t row_block=0; row_block < 9; ++row_block ){
+                    for(std::size_t col_block=0; col_block < 9; ++col_block ){
+                        if (ebos_jac.exists(row_block, col_block)){
+                            A0[row_block][col_block][0][0] = ebos_jac[row_block][col_block][0][0];
+                            A0[row_block][col_block][0][1] = ebos_jac[row_block][col_block][0][1];
+                            A0[row_block][col_block][1][0] = ebos_jac[row_block][col_block][1][0];
+                            A0[row_block][col_block][1][1] = ebos_jac[row_block][col_block][1][1];
+                        }
+                    }
+                }
+
+
+                Dune::printmatrix(std::cout, numA0, "Numerical A0", "row");
+                Dune::printmatrix(std::cout, A0, "AD A0", "row");
+                calculateDifference(A0, numA0, &diffA0);
+                Dune::printmatrix(std::cout, diffA0, "A0 difference", "row");
 
 
                 /* ----------------- Minimum working example ----------------- */
